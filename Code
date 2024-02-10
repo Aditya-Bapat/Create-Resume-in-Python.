@@ -1,0 +1,91 @@
+from flask import Flask, render_template, request, send_file
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+
+app = Flask(__name__)
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/generate_resume', methods=['POST'])
+def generate_resume():
+    if request.method == 'POST':
+        resume_data = {
+            "Name": request.form['Name'],
+            "Email": request.form['Email'],
+            "Phone": request.form['Phone'],
+            "Gender": request.form['Gender'],
+            "CurrentCity": request.form['CurrentCity'],
+            "ResumeObjective": request.form['ResumeObjective'],
+            "SkillSet": request.form['SkillSet'].split(","),
+            "Experience": [],
+            "Education": []
+        }
+
+        # Parse experience details
+        experience_count = int(request.form['ExperienceCount'])
+        for i in range(experience_count):
+            company_name = request.form[f'Experience_{i}_CompanyName']
+            if company_name.lower() == 'exit':
+                break
+
+            experience = {
+                "CompanyName": company_name,
+                "Duration": request.form[f'Experience_{i}_Duration'],
+                "ExperienceDetails": request.form[f'Experience_{i}_Details']
+            }
+            resume_data["Experience"].append(experience)
+
+        # Parse education details
+        education_count = int(request.form['EducationCount'])
+        for i in range(education_count):
+            college_name = request.form[f'Education_{i}_CollegeName']
+            if college_name.lower() == 'exit':
+                break
+
+            education = {
+                "CollegeName": college_name,
+                "Major": request.form[f'Education_{i}_Major'],
+                "PassingYear": request.form[f'Education_{i}_PassingYear']
+            }
+            resume_data["Education"].append(education)
+
+        output_path = "resume_generated.pdf"
+        create_pdf_from_data(resume_data, output_path)
+
+        return send_file(output_path, as_attachment=True)
+
+def create_pdf_from_data(resume_data, output_path):
+    c = canvas.Canvas(output_path, pagesize=letter)
+
+    c.drawString(100, 750, "Name: " + resume_data["Name"])
+    c.drawString(100, 730, "Email: " + resume_data["Email"])
+    c.drawString(100, 710, "Phone: " + resume_data["Phone"])
+    c.drawString(100, 690, "Gender: " + resume_data["Gender"])
+    c.drawString(100, 670, "Current City: " + resume_data["CurrentCity"])
+    c.drawString(100, 650, "Resume Objective: " + resume_data["ResumeObjective"])
+
+    y_position = 620
+    for skill in resume_data["SkillSet"]:
+        c.drawString(100, y_position, f"Skill: {skill}")
+        y_position -= 15
+
+    y_position -= 30
+    for experience in resume_data["Experience"]:
+        c.drawString(100, y_position, f"Company: {experience['CompanyName']}")
+        c.drawString(100, y_position - 15, f"Duration: {experience['Duration']}")
+        c.drawString(100, y_position - 30, f"Details: {experience['ExperienceDetails']}")
+        y_position -= 45
+
+    y_position -= 30
+    for education in resume_data["Education"]:
+        c.drawString(100, y_position, f"College: {education['CollegeName']}")
+        c.drawString(100, y_position - 15, f"Major: {education['Major']}")
+        c.drawString(100, y_position - 30, f"Passing Year: {education['PassingYear']}")
+        y_position -= 45
+
+    c.save()
+
+if __name__ == "__main__":
+    app.run(debug=True)
